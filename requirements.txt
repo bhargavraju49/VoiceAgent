@@ -2,3 +2,12 @@
 google-adk
 google-generativeai
 
+# Fast Voice Processing
+openai-whisper
+pyttsx3
+SpeechRecognition
+pyaudio
+
+# Optional voice enhancements
+numpy
+

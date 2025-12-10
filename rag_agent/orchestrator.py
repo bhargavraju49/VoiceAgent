@@ -36,6 +36,7 @@ class RAGOrchestrator(BaseAgent):
     Routes user requests to the appropriate agent:
     - Policy management queries → Policy Manager Agent
     - Search queries → Search Assistant Agent
+    - Voice queries → Voice Assistant Agent
 
     This agent checks the user's intent to intelligently route requests.
     """
@@ -43,6 +44,7 @@ class RAGOrchestrator(BaseAgent):
     # Declare sub-agents as class attributes for Pydantic
     policy_manager: LlmAgent
     search_assistant: LlmAgent
+    voice_assistant: LlmAgent
 
     # Allow arbitrary types for Pydantic validation
     model_config = {"arbitrary_types_allowed": True}
@@ -52,6 +54,7 @@ class RAGOrchestrator(BaseAgent):
         name: str,
         policy_manager: LlmAgent,
         search_assistant: LlmAgent,
+        voice_assistant: LlmAgent,
     ):
         """
         Initialize the RAG Orchestrator.
@@ -60,15 +63,17 @@ class RAGOrchestrator(BaseAgent):
             name: The name of the orchestrator.
             policy_manager: Agent that handles policy management queries.
             search_assistant: Agent that handles search and answers questions.
+            voice_assistant: Agent that handles voice interactions.
         """
         # Define sub_agents list for framework
-        sub_agents_list = [policy_manager, search_assistant]
+        sub_agents_list = [policy_manager, search_assistant, voice_assistant]
 
         # Call super().__init__ with all required fields
         super().__init__(
             name=name,
             policy_manager=policy_manager,
             search_assistant=search_assistant,
+            voice_assistant=voice_assistant,
             sub_agents=sub_agents_list,
         )
 
@@ -85,21 +90,36 @@ class RAGOrchestrator(BaseAgent):
         user_text = extract_user_text(ctx)
         logger.info(f"[{self.name}] User text: {user_text[:100]}")
 
-        route = determine_route(user_text)
-
-        # Execute the appropriate agent
-        if route == "policy_manager":
-            logger.info(f"[{self.name}] Running Policy Manager Agent...")
-            async for event in self.policy_manager.run_async(ctx):
-                logger.info(f"[{self.name}] Event from PolicyManager: {event.author}")
+        # Check if this is a voice-related request or audio input
+        voice_keywords = ["audio", "voice", "speak", "listen", "microphone", "speech", "say"]
+        is_voice_request = any(keyword in user_text.lower() for keyword in voice_keywords)
+        
+        # Also check if there are audio attachments or voice input context
+        has_audio_context = hasattr(ctx, 'attachments') and any(
+            getattr(att, 'content_type', '').startswith('audio/') 
+            for att in getattr(ctx, 'attachments', [])
+        )
+        
+        if is_voice_request or has_audio_context:
+            logger.info(f"[{self.name}] Running Voice Assistant Agent (bridge mode)...")
+            async for event in self.voice_assistant.run_async(ctx):
+                logger.info(f"[{self.name}] Event from VoiceAssistant: {event.author}")
                 yield event
         else:
-            logger.info(f"[{self.name}] Running Search Assistant Agent...")
-            async for event in self.search_assistant.run_async(ctx):
-                logger.info(
-                    f"[{self.name}] Event from SearchAssistant: {event.author}"
-                )
-                yield event
+            route = determine_route(user_text)
+            # Execute the appropriate agent
+            if route == "policy_manager":
+                logger.info(f"[{self.name}] Running Policy Manager Agent...")
+                async for event in self.policy_manager.run_async(ctx):
+                    logger.info(f"[{self.name}] Event from PolicyManager: {event.author}")
+                    yield event
+            else:
+                logger.info(f"[{self.name}] Running Search Assistant Agent...")
+                async for event in self.search_assistant.run_async(ctx):
+                    logger.info(
+                        f"[{self.name}] Event from SearchAssistant: {event.author}"
+                    )
+                    yield event
 
         logger.info(f"[{self.name}] Orchestration complete")
 
@@ -110,27 +130,15 @@ class RAGOrchestrator(BaseAgent):
         """
         Orchestration logic for live/voice mode.
 
-        Routes voice queries based on keywords, similar to text mode.
+        In live mode, route to voice assistant for speech-to-text bridge functionality.
         """
         logger.info(f"[{self.name}] Starting LIVE orchestration (voice mode)")
 
-        # Extract user text from voice context and determine routing
-        user_text = extract_user_text(ctx)
-        logger.info(f"[{self.name}] Voice input: {user_text[:100]}")
-
-        route = determine_route(user_text)
-
-        # Execute the appropriate agent in live mode
-        if route == "policy_manager":
-            logger.info(f"[{self.name}] → Running Policy Manager in LIVE mode")
-            async for event in self.policy_manager.run_live(ctx):
-                logger.info(f"[{self.name}] Live event from PolicyManager")
-                yield event
-        else:
-            logger.info(f"[{self.name}] → Running Search Assistant in LIVE mode")
-            async for event in self.search_assistant.run_live(ctx):
-                logger.info(f"[{self.name}] Live event from SearchAssistant")
-                yield event
+        # In live mode, use voice assistant as bridge to search functionality
+        logger.info(f"[{self.name}] → Running Voice Assistant in LIVE mode (bridge to search)")
+        async for event in self.voice_assistant.run_live(ctx):
+            logger.info(f"[{self.name}] Live event from VoiceAssistant")
+            yield event
 
         logger.info(f"[{self.name}] Live orchestration complete")
 

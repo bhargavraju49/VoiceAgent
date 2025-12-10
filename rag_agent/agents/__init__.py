@@ -17,9 +17,11 @@
 from .policy_manager import create_policy_manager_agent
 from .search_assistant import create_search_assistant_agent
 from .file_manager import create_file_manager_agent
+from .voice_assistant import create_voice_assistant_agent
 
 __all__ = [
     "create_policy_manager_agent",
     "create_search_assistant_agent",
     "create_file_manager_agent",
+    "create_voice_assistant_agent",
 ]

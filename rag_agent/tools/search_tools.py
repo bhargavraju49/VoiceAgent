@@ -62,7 +62,7 @@ def search_documents(query: str, tool_context: ToolContext) -> Dict[str, Any]:
 
     # Improved keyword matching with scoring
     # Extract keywords from query (remove common words)
-    stop_words = {"what", "is", "the", "a", "an", "for", "this", "that", "in", "on", "at", "to", "of", "and", "or"}
+    stop_words = {"what", "is", "the", "a", "an", "for", "this", "that", "in", "on", "at", "to", "of", "and", "or", "how", "when", "where", "why", "who"}
     query_keywords = [word.lower() for word in query.split() if word.lower() not in stop_words]
     
     # Score chunks based on keyword matches
@@ -72,6 +72,9 @@ def search_documents(query: str, tool_context: ToolContext) -> Dict[str, Any]:
         # Count how many query keywords appear in the chunk
         matches = sum(1 for keyword in query_keywords if keyword in content_lower)
         if matches > 0:
+            # Also boost score for exact phrase matches
+            if query.lower() in content_lower:
+                matches += 2
             scored_chunks.append({
                 "chunk": chunk,
                 "score": matches
@@ -79,7 +82,7 @@ def search_documents(query: str, tool_context: ToolContext) -> Dict[str, Any]:
     
     # Sort by score (highest first) and get top chunks
     scored_chunks.sort(key=lambda x: x["score"], reverse=True)
-    relevant_chunks = [item["chunk"] for item in scored_chunks[:5]]  # Top 5 chunks
+    relevant_chunks = [item["chunk"] for item in scored_chunks[:3]]  # Top 3 chunks only
 
     if not relevant_chunks:
         return {
@@ -89,9 +92,80 @@ def search_documents(query: str, tool_context: ToolContext) -> Dict[str, Any]:
             "message": "The search did not find any matching content in the available insurance policies."
         }
 
-    # For simplicity, we'll combine the content of all relevant chunks
-    # and list the unique sources.
-    answer = " ".join([chunk["content"] for chunk in relevant_chunks])
+    # Extract relevant sentences instead of returning entire chunks
+    def extract_relevant_sentences(content: str, keywords: list, query: str) -> str:
+        """Extract sentences that contain the query keywords with enhanced context."""
+        # Split by periods and also by newlines for better sentence detection
+        sentences = []
+        for part in content.split('\n'):
+            sentences.extend([s.strip() for s in part.split('.') if s.strip()])
+        
+        relevant_sentences = []
+        
+        # First pass: sentences with exact keyword matches
+        for sentence in sentences:
+            if not sentence.strip():
+                continue
+            sentence_lower = sentence.lower()
+            # Check if sentence contains any of the keywords
+            if any(keyword in sentence_lower for keyword in keywords):
+                relevant_sentences.append(sentence.strip() + '.')
+        
+        # Second pass: for contact/phone queries, look for numbers and contact info
+        if any(word in query.lower() for word in ['contact', 'phone', 'call', 'reach', 'number']):
+            phone_pattern = r'\b\d{4}\s?\d{3}\s?\d{4}\b|\b0\d{3}\s?\d{3}\s?\d{4}\b'
+            for sentence in sentences:
+                if not sentence.strip():
+                    continue
+                # Look for phone numbers, contact words, or service mentions
+                if any(word in sentence.lower() for word in ['phone', 'call', 'contact', 'service', 'reach', 'number', '0345', 'halifax']):
+                    if sentence.strip() + '.' not in relevant_sentences:
+                        relevant_sentences.append(sentence.strip() + '.')
+        
+        # Third pass: for claims, look for procedural information
+        if any(word in query.lower() for word in ['claim', 'claims']):
+            for sentence in sentences:
+                if not sentence.strip():
+                    continue
+                if any(word in sentence.lower() for word in ['claim', 'contact', 'call', 'report', 'notify', 'phone', 'soon', 'immediately']):
+                    if sentence.strip() + '.' not in relevant_sentences:
+                        relevant_sentences.append(sentence.strip() + '.')
+                        
+        return ' '.join(relevant_sentences[:8])  # Increased to 8 sentences for better context
+    
+    # Extract relevant content from chunks
+    relevant_content = []
+    for chunk in relevant_chunks:
+        extracted = extract_relevant_sentences(chunk["content"], query_keywords, query)
+        if extracted:
+            relevant_content.append(extracted)
+    
+    # If no relevant sentences found, fall back to contextual search
+    if not relevant_content:
+        best_chunk = relevant_chunks[0]["content"]
+        # Take context around the keyword
+        best_chunk_lower = best_chunk.lower()
+        for keyword in query_keywords:
+            if keyword in best_chunk_lower:
+                start_idx = best_chunk_lower.find(keyword)
+                # Get more context around the keyword
+                start = max(0, start_idx - 300)
+                end = min(len(best_chunk), start_idx + 500)
+                context = best_chunk[start:end]
+                relevant_content.append(context)
+                break
+        else:
+            # Final fallback to beginning
+            relevant_content.append(best_chunk[:800] + "..." if len(best_chunk) > 800 else best_chunk)
+    
+    # Combine relevant content
+    answer = " ".join(relevant_content)
+    
+    # Limit total response length but allow more for important queries
+    max_length = 1500 if any(word in query.lower() for word in ['contact', 'claim', 'phone', 'call']) else 1000
+    if len(answer) > max_length:
+        answer = answer[:max_length] + "..."
+    
     sources = sorted(list(set(chunk["source"] for chunk in relevant_chunks)))
 
     return {

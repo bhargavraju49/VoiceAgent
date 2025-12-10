@@ -18,6 +18,7 @@ from .agents import (
     create_policy_manager_agent,
     create_search_assistant_agent,
     create_file_manager_agent,
+    create_voice_assistant_agent,
 )
 from .orchestrator import RAGOrchestrator
 
@@ -28,11 +29,13 @@ def create_root_agent():
     
     policy_manager = create_policy_manager_agent(None)
     search_assistant = create_search_assistant_agent(None)
+    voice_assistant = create_voice_assistant_agent(None)
     
     return RAGOrchestrator(
         name="InsurancePolicyRAGOrchestrator",
         policy_manager=policy_manager,
         search_assistant=search_assistant,
+        voice_assistant=voice_assistant,
     )
 
 
