@@ -14,82 +14,12 @@
 
 """RAG Agent definitions for the Insurance Policy Q&A agent."""
 
-from google.adk.agents import LlmAgent
-from google.adk.models import Gemini
-from .file_search_tool import search_tool
-from .file_upload_handler import list_files_tool, file_processing_tool
+from .agents import (
+    create_policy_manager_agent,
+    create_search_assistant_agent,
+    create_file_manager_agent,
+)
 from .orchestrator import RAGOrchestrator
-
-
-def create_policy_manager_agent(llm) -> LlmAgent:
-    """
-    Creates the Policy Manager agent.
-
-    This agent is responsible for listing the available insurance policies.
-    """
-    policy_manager_prompt = """
-    You are a Policy Manager Assistant. Your job is to list the available insurance policies.
-
-    **Your Tool:**
-    - `list_files`: Use this tool to get a list of all indexed policies.
-
-    **Workflow:**
-    1. When the user asks to see the policies, call the `list_files` tool.
-    2. Present the list of policies to the user.
-    """
-    return LlmAgent(
-        name="PolicyManagerAgent",
-        model="gemini-2.0-flash-exp",
-        instruction=policy_manager_prompt,
-        description="Manages listing of insurance policies.",
-        tools=[list_files_tool],
-    )
-
-
-def create_search_assistant_agent(llm) -> LlmAgent:
-    """
-    Creates the Search Assistant agent.
-
-    This agent is responsible for answering questions based on the content
-    of the indexed insurance policies.
-    """
-    search_assistant_prompt = """
-    You are a Search Assistant for insurance policies. Your sole purpose is to answer
-    questions using only the content from the indexed policy documents.
-
-    **Your Tool:**
-    - `search_documents`: Use this to find answers in the indexed policies.
-
-    **How to Respond:**
-    1.  **Always use the `search_documents` tool** to answer user questions.
-    2.  Base your answers strictly on the information returned by the tool.
-    3.  If the answer is found, summarize it clearly. Always cite the source policy.
-    4.  If the answer cannot be found, state: "I could not find information about that
-        in the available insurance policies."
-    5.  Do not use general knowledge.
-    """
-    return LlmAgent(
-        name="SearchAssistantAgent",
-        model="gemini-2.0-flash-exp",
-        instruction=search_assistant_prompt,
-        description="Answers questions about insurance policies.",
-        tools=[search_tool],
-    )
-
-
-def create_file_manager_agent(llm) -> LlmAgent:
-    """
-    Creates the File Manager agent for startup indexing.
-
-    This agent is not directly used by the orchestrator but its tool is
-    used in the startup script for indexing.
-    """
-    return LlmAgent(
-        name="FileManagerAgent",
-        model="gemini-2.0-flash-exp",
-        tools=[file_processing_tool],
-        description="A helper agent for file processing.",
-    )
 
 
 # Create the root agent that ADK will discover

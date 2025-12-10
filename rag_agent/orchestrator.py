@@ -23,6 +23,7 @@ from typing_extensions import override
 from google.adk.agents import BaseAgent, LlmAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events import Event
+from .utils.routing import extract_user_text, determine_route
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -76,39 +77,18 @@ class RAGOrchestrator(BaseAgent):
         self, ctx: InvocationContext
     ) -> AsyncGenerator[Event, None]:
         """
-        Orchestration logic for routing requests.
+        Orchestration logic for routing text requests.
         """
         logger.info(f"[{self.name}] Starting Insurance Policy RAG orchestration")
 
-        # Get the user's latest message from session history
-        user_text = ""
-        if ctx.session.events and len(ctx.session.events) > 0:
-            last_event = ctx.session.events[-1]
-            if last_event.content and last_event.content.parts:
-                for part in last_event.content.parts:
-                    if part.text:
-                        user_text = part.text.lower()
-                        logger.info(f"[{self.name}] User text: {user_text[:100]}")
-                        break  # Assuming one text part per user message
+        # Extract user text and determine routing
+        user_text = extract_user_text(ctx)
+        logger.info(f"[{self.name}] User text: {user_text[:100]}")
 
-        # Routing Logic
-        # If user asks about policies, route to policy manager.
-        if any(
-            keyword in user_text
-            for keyword in ["list policies", "what policies", "show policies"]
-        ):
-            logger.info(
-                f"[{self.name}] → Routing to Policy Manager (policy-related query)"
-            )
-            route_to_policy_manager = True
-        else:
-            logger.info(
-                f"[{self.name}] → Routing to Search Assistant (search/question query)"
-            )
-            route_to_policy_manager = False
+        route = determine_route(user_text)
 
         # Execute the appropriate agent
-        if route_to_policy_manager:
+        if route == "policy_manager":
             logger.info(f"[{self.name}] Running Policy Manager Agent...")
             async for event in self.policy_manager.run_async(ctx):
                 logger.info(f"[{self.name}] Event from PolicyManager: {event.author}")
@@ -130,16 +110,27 @@ class RAGOrchestrator(BaseAgent):
         """
         Orchestration logic for live/voice mode.
 
-        In voice mode, we route directly to the SearchAssistant.
-        Policy management is handled via text queries.
+        Routes voice queries based on keywords, similar to text mode.
         """
         logger.info(f"[{self.name}] Starting LIVE orchestration (voice mode)")
 
-        # Main voice interaction goes to SearchAssistant
-        logger.info(f"[{self.name}] → Running Search Assistant in LIVE mode")
-        async for event in self.search_assistant.run_live(ctx):
-            logger.info(f"[{self.name}] Live event from SearchAssistant")
-            yield event
+        # Extract user text from voice context and determine routing
+        user_text = extract_user_text(ctx)
+        logger.info(f"[{self.name}] Voice input: {user_text[:100]}")
+
+        route = determine_route(user_text)
+
+        # Execute the appropriate agent in live mode
+        if route == "policy_manager":
+            logger.info(f"[{self.name}] → Running Policy Manager in LIVE mode")
+            async for event in self.policy_manager.run_live(ctx):
+                logger.info(f"[{self.name}] Live event from PolicyManager")
+                yield event
+        else:
+            logger.info(f"[{self.name}] → Running Search Assistant in LIVE mode")
+            async for event in self.search_assistant.run_live(ctx):
+                logger.info(f"[{self.name}] Live event from SearchAssistant")
+                yield event
 
         logger.info(f"[{self.name}] Live orchestration complete")
 

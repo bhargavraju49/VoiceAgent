@@ -60,20 +60,33 @@ def search_documents(query: str, tool_context: ToolContext) -> Dict[str, Any]:
             for chunk in data.get("chunks", []):
                 all_chunks.append({"source": source, "content": chunk})
 
-    # Simple keyword matching for demonstration purposes
-    # A more robust solution would use a proper search algorithm (e.g., BM25)
-    # or a vector-based search.
-    relevant_chunks = [
-        chunk
-        for chunk in all_chunks
-        if any(keyword.lower() in chunk["content"].lower() for keyword in query.split())
-    ]
+    # Improved keyword matching with scoring
+    # Extract keywords from query (remove common words)
+    stop_words = {"what", "is", "the", "a", "an", "for", "this", "that", "in", "on", "at", "to", "of", "and", "or"}
+    query_keywords = [word.lower() for word in query.split() if word.lower() not in stop_words]
+    
+    # Score chunks based on keyword matches
+    scored_chunks = []
+    for chunk in all_chunks:
+        content_lower = chunk["content"].lower()
+        # Count how many query keywords appear in the chunk
+        matches = sum(1 for keyword in query_keywords if keyword in content_lower)
+        if matches > 0:
+            scored_chunks.append({
+                "chunk": chunk,
+                "score": matches
+            })
+    
+    # Sort by score (highest first) and get top chunks
+    scored_chunks.sort(key=lambda x: x["score"], reverse=True)
+    relevant_chunks = [item["chunk"] for item in scored_chunks[:5]]  # Top 5 chunks
 
     if not relevant_chunks:
         return {
-            "status": "success",
-            "answer": "No information found for the query.",
+            "status": "not_found",
+            "answer": "No information found for the query in the indexed policy documents.",
             "sources": [],
+            "message": "The search did not find any matching content in the available insurance policies."
         }
 
     # For simplicity, we'll combine the content of all relevant chunks
@@ -81,7 +94,12 @@ def search_documents(query: str, tool_context: ToolContext) -> Dict[str, Any]:
     answer = " ".join([chunk["content"] for chunk in relevant_chunks])
     sources = sorted(list(set(chunk["source"] for chunk in relevant_chunks)))
 
-    return {"status": "success", "answer": answer, "sources": sources}
+    return {
+        "status": "success",
+        "answer": answer,
+        "sources": sources,
+        "message": f"Found information in {len(sources)} policy document(s)."
+    }
 
 
 # Create the FunctionTool
