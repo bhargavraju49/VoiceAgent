@@ -1,0 +1,4 @@
+# ADK and Gemini dependencies
+google-adk
+google-generativeai
+
