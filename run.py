@@ -78,9 +78,9 @@ async def index_new_policies(file_manager_agent: LlmAgent) -> None:
     file_store_config = get_file_store_config()
     indexed_files = file_store_config.get("indexed_files", [])
     
-    # Get the list of raw policy files (including PDF files for processing)
+    # Get the list of raw policy files (including PDF and Excel files for processing)
     raw_files = [f.name for f in RAW_POLICIES_DIR.iterdir() 
-                 if f.is_file() and f.suffix.lower() in ['.txt', '.json', '.md', '.pdf']]
+                 if f.is_file() and f.suffix.lower() in ['.txt', '.json', '.md', '.pdf', '.xlsx', '.xls']]
     
     # Determine which files are new
     new_files_to_index = [f for f in raw_files if f not in indexed_files]
@@ -113,7 +113,45 @@ async def index_new_policies(file_manager_agent: LlmAgent) -> None:
         try:
             # Use Gemini API to extract and analyze the document content
             extracted_text = ""
-            if raw_file_path.suffix.lower() == '.pdf':
+            if raw_file_path.suffix.lower() in ['.xlsx', '.xls']:
+                try:
+                    import pandas as pd
+                    import io
+                    
+                    logger.info(f"Processing Excel file: {filename}")
+                    
+                    # Read all sheets from the Excel file
+                    excel_data = pd.read_excel(raw_file_path, sheet_name=None)
+                    
+                    extracted_parts = []
+                    for sheet_name, df in excel_data.items():
+                        if not df.empty:
+                            # Convert DataFrame to readable text format
+                            sheet_text = f"\n--- Sheet: {sheet_name} ---\n"
+                            
+                            # Include column headers
+                            sheet_text += f"Columns: {', '.join(df.columns.astype(str))}\n\n"
+                            
+                            # Convert each row to text
+                            for idx, row in df.iterrows():
+                                row_text = []
+                                for col, val in row.items():
+                                    if pd.notna(val) and str(val).strip():
+                                        row_text.append(f"{col}: {val}")
+                                
+                                if row_text:
+                                    sheet_text += " | ".join(row_text) + "\n"
+                            
+                            extracted_parts.append(sheet_text)
+                    
+                    extracted_text = "\n".join(extracted_parts)
+                    logger.info(f"Successfully extracted {len(extracted_text)} characters from Excel file")
+                    
+                except Exception as e:
+                    logger.error(f"Excel processing failed for {filename}: {e}")
+                    extracted_text = f"Excel processing error for {filename}: {str(e)}"
+                    
+            elif raw_file_path.suffix.lower() == '.pdf':
                 try:
                     import base64
                     import google.generativeai as genai
