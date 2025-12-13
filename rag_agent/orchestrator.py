@@ -124,7 +124,7 @@ class RAGOrchestrator(BaseAgent):
         logger.info(f"[{self.name}] Orchestration complete")
 
     @override
-    async def _run_live_impl(self, ctx: ConversationContext) -> AsyncGenerator[ConversationEvent, None]:
+    async def _run_live_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         """
         Orchestration logic for live/voice mode.
         
@@ -146,11 +146,8 @@ class RAGOrchestrator(BaseAgent):
             logger.warning(f"[{self.name}] Live API connection failed: {str(e)}")
             logger.info(f"[{self.name}] → Falling back to regular mode for voice input")
             
-            # Import necessary classes for creating fallback response
-            from google.adk.core import ConversationEvent
-            
             # Send error message to user
-            yield ConversationEvent.create(
+            yield Event.create(
                 type="text",
                 text="Voice mode is currently unavailable due to network connectivity. Please try typing your question instead."
             )
@@ -164,7 +161,7 @@ class RAGOrchestrator(BaseAgent):
                         yield event
                 except Exception as fallback_error:
                     logger.error(f"[{self.name}] Fallback mode also failed: {fallback_error}")
-                    yield ConversationEvent.create(
+                    yield Event.create(
                         type="text", 
                         text="I'm experiencing technical difficulties. Please try again later."
                     )
