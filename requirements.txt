@@ -15,4 +15,3 @@ langchain-text-splitters
 
 # Optional voice enhancements
 numpy
-
