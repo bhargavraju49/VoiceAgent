@@ -1,0 +1,75 @@
+VoiceAgent Hackathon Project - Summary
+=====================================
+
+Project Overview
+----------------
+You built a voice-enabled insurance policy assistant using Retrieval-Augmented Generation (RAG), FastAPI, Gemini LLM, and browser-based voice features. The system answers insurance questions using only indexed policy documents, with a focus on accuracy and no hallucinations.
+
+Key Features Implemented
+------------------------
+- **Voice-to-Voice Interaction:** Users can ask questions by voice and receive spoken answers.
+- **Text-to-Text and Text-to-Voice:** Users can also type questions; answers are shown as text, and spoken only if the question was asked by voice.
+- **Short, Factual Answers:** The backend instructs the LLM to answer briefly and always include coverage amounts or limits if available.
+- **No Hallucination:** All answers are grounded in indexed policy documents using FAISS vector search.
+- **FastAPI Backend:** Handles routing, search, and LLM calls.
+- **Gemini LLM:** Provides concise, policy-specific answers.
+- **UI Improvements:** Microphone button for voice input, TTS for voice output, and logic to only speak answers for voice input.
+- **Word and PowerPoint Exports:** Automated generation of documentation and slides for demo and sharing.
+
+Technical Flow
+--------------
+1. **User Input:** User asks a question via text or voice in the browser UI.
+2. **Speech-to-Text:** If using voice, browser converts speech to text.
+3. **Frontend Sends Query:** The question is sent to the FastAPI backend.
+4. **RAG Orchestrator:** Backend routes the query to the right agent (policy manager or search assistant).
+5. **Vector Search:** Search Assistant uses FAISS to find relevant policy document chunks.
+6. **LLM Answer:** Gemini LLM generates a grounded answer using only retrieved document content.
+7. **Short, Factual Response:** Backend instructs the LLM to answer briefly and always include coverage numbers if available.
+8. **Text-to-Speech:** If the user used voice input, the answer is spoken aloud; otherwise, it's shown as text.
+
+Business Value
+--------------
+- Reduces customer confusion and support costs.
+- Increases policyholder satisfaction and trust.
+- Scalable to any insurance product or region.
+- Voice-first: accessible to all, including non-technical users.
+- Ready for enterprise deployment and future enhancements.
+
+Flow Diagram
+------------
+
+```
+User Input (Text or Voice)
+        |
+        v
+  RAG Orchestrator
+    | 1. Extract text from context
+    | 2. Determine route via keywords
+        |
+        v
+   Routing Logic
+        |
+        v
+  Keywords found?
+   /         \
+Yes         No
+ |           |
+ v           v
+Policy     Search
+Manager    Assistant
+Agent      Agent
+ |           |
+ v           v
+List      Search
+Files     Documents
+Tool      Tool
+ |           |
+ v           v
+Return    Return
+Policy    Answer from
+List      Indexed Docs
+ \         /
+   v     v
+ Response to User
+```
+

@@ -4,7 +4,6 @@
 This project implements a multi-agent RAG (Retrieval-Augmented Generation) system for insurance policy question-answering with voice and text support.
 
 ## New Organized Structure
-
 ```
 rag_agent/
 ├── __init__.py                 # Main package initialization

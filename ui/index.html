@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Insurance Policy Assistant</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+
+<body>
+  <div class="app">
+
+    <!-- Header -->
+    <header class="header">
+      <div class="title">
+        <h1>Insurance Policy Assistant</h1>
+        <p>Beautiful UI + ADK Agent backend (no hallucination focus)</p>
+      </div>
+      <div class="status">
+        <span class="dot"></span>
+        <span>Running</span>
+      </div>
+    </header>
+
+    <div class="main">
+      <!-- Chat area -->
+      <div class="chat-area">
+        <div id="chat" class="chat">
+          <div class="msg bot">
+            Hi! Ask insurance questions. I’ll answer only from your indexed policy documents.
+          </div>
+        </div>
+
+        <!-- Composer -->
+        <div class="composer">
+          <button id="micBtn" class="alt" title="Speak">🎙️</button>
+          <input id="q" placeholder="Ask a question…" />
+          <button id="sendBtn">Send</button>
+          <button id="speakBtn" class="alt" title="Speak last answer">🔊</button>
+        </div>
+      </div>
+
+      <!-- Right panel -->
+      <aside class="side">
+        <h3>Quick actions</h3>
+        <button onclick="quickAsk('Is fire damage covered?')">Fire coverage</button>
+        <button onclick="quickAsk('Is flood damage covered?')">Flood + contents</button>
+        <button onclick="quickAsk('How do I raise a claim?')">Claim documents</button>
+        <button onclick="clearChat()">Clear chat</button>
+
+        <div class="hint">
+          <strong>Best safe prompt:</strong><br />
+          “Based only on policy documents provided, answer and mention exclusions.”
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

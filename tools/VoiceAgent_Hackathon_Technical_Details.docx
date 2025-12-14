@@ -1,0 +1,103 @@
+Insurance Policy Voice Agent - Hackathon Solution (Detailed Technical Documentation)
+====================================================================
+
+1. System Overview
+------------------
+This solution is a voice-enabled Retrieval-Augmented Generation (RAG) agent for insurance policy Q&A. It combines Google ADK Agents, Gemini LLM, FastAPI, FAISS vector search, and a browser-based UI with full voice-to-voice support. The system is designed for fast, accurate, and policy-grounded answers, minimizing hallucinations and maximizing user accessibility.
+
+2. High-Level Architecture
+-------------------------
+- **RAG Orchestrator (Root Agent):** Entry point for all user queries, responsible for intelligent routing.
+- **Policy Manager Agent:** Handles policy management and listing queries.
+- **Search Assistant Agent:** Handles semantic search and retrieval from indexed policy documents.
+- **Voice Assistant Agent:** Manages voice-specific interactions and bridges UI voice features.
+- **FAISS Vector Search:** Enables fast, semantic retrieval from large policy documents.
+- **Gemini LLM:** Generates grounded, concise answers using only retrieved content.
+- **FastAPI Backend:** Orchestrates all backend logic, routing, and API endpoints.
+- **Browser UI:** Provides chat interface, voice input (STT), and voice output (TTS).
+
+```
+[User (Text/Voice)]
+      |
+      v
+[RAG Orchestrator]
+  |      |      |
+  v      v      v
+Policy  Search  Voice
+Agent   Agent   Agent
+  |      |      |
+  v      v      v
+Policy  Search  Voice
+Tools   Tools   Tools
+      |      |
+      v      v
+   FAISS   Gemini LLM
+      |      |
+      v      v
+   Response to User
+```
+
+3. Backend Architecture & Data Flow
+-----------------------------------
+- **FastAPI** exposes a `/chat` endpoint for all queries.
+- **RAG Orchestrator** receives the query, extracts context, and determines routing:
+    - If keywords match policy management, routes to Policy Manager Agent.
+    - Otherwise, routes to Search Assistant Agent.
+- **Search Assistant Agent** uses FAISS to retrieve relevant document chunks.
+- **Gemini LLM** is prompted with only the retrieved content, ensuring answers are grounded and concise.
+- **System prompt** ensures answers always include coverage numbers/limits if available.
+- **Voice Assistant Agent** handles special voice-related requests and bridges UI voice features.
+
+4. Frontend/UI Architecture & Voice Features
+--------------------------------------------
+- **Chat UI**: Built in HTML/JS/CSS, displays user and assistant messages.
+- **Speech-to-Text (STT):** Uses Web Speech API to convert spoken input to text. When the mic button is pressed, browser listens and transcribes speech, then sends it as a query.
+- **Text-to-Speech (TTS):** Uses Web Speech API to speak answers aloud, but only if the last input was via voice.
+- **Message Flow:**
+    - User types or speaks a question.
+    - UI sends the question to `/chat` endpoint.
+    - Displays "Searching policy documents…" while waiting.
+    - Shows answer as text, and speaks it if input was voice.
+- **Error Handling:**
+    - UI displays errors if backend is unreachable or if voice recognition fails.
+    - Latency is measured and shown for each query.
+- **Accessibility:**
+    - Voice-to-voice mode enables hands-free operation.
+    - UI disables mic if browser does not support Web Speech API.
+
+5. Integration: End-to-End Flow
+-------------------------------
+1. User provides input (text or voice) in the browser UI.
+2. If voice, STT transcribes and sets a flag for TTS.
+3. UI sends the query to FastAPI backend.
+4. Backend orchestrator routes and processes the query.
+5. FAISS retrieves relevant policy chunks; Gemini LLM generates a grounded answer.
+6. Backend returns the answer to the UI.
+7. UI displays the answer and, if input was voice, speaks it aloud.
+
+6. Extensibility & Deployment
+-----------------------------
+- **Adding New Policies:** Place new policy documents in the `data/raw_policies/` folder and re-index.
+- **Adding New Agents/Tools:** Extend the `rag_agent/agents/` or `rag_agent/tools/` modules.
+- **Deployment:**
+    - Backend: Run with `uvicorn api:app --reload`.
+    - UI: Open `ui/index.html` in a browser (Chrome recommended for best voice support).
+    - Requires Python 3.10+, Node.js (for advanced UI), and modern browser.
+- **Scalability:**
+    - System is modular; can add more agents, tools, or LLMs as needed.
+    - Voice features can be enhanced with custom TTS/STT engines if required.
+
+7. Security & Privacy
+---------------------
+- All answers are grounded in indexed documents; no external data is used for answers.
+- No user data is stored beyond session.
+- Voice data is processed locally in the browser for privacy.
+
+8. Troubleshooting & Notes
+--------------------------
+- If TTS or STT does not work, check browser compatibility (Chrome recommended).
+- If backend is unreachable, ensure FastAPI is running and accessible.
+- For best results, ensure policy documents are well-formatted and indexed.
+
+---
+This document provides a comprehensive technical overview of the Insurance Policy Voice Agent, including backend, UI, and integration details. For further customization or scaling, refer to the codebase and architecture diagrams.

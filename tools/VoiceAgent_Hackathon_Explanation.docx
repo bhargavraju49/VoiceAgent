@@ -1,0 +1,75 @@
+Insurance Policy Voice Agent - Hackathon Solution
+=================================================
+
+Overview
+--------
+This project is a voice-enabled Retrieval-Augmented Generation (RAG) agent for answering insurance policy questions. It uses Google ADK Agents, Gemini LLM, FastAPI backend, FAISS vector search, and browser-based Speech-to-Text (STT) and Text-to-Speech (TTS). The system is designed to provide fast, accurate, and policy-grounded answers with no hallucinations.
+
+System Flow Diagram
+-------------------
+
+```
+User Input (Text or Voice)
+        |
+        v
+  RAG Orchestrator
+    | 1. Extract text from context
+    | 2. Determine route via keywords
+        |
+        v
+   Routing Logic
+        |
+        v
+  Keywords found?
+   /         \
+Yes         No
+ |           |
+ v           v
+Policy     Search
+Manager    Assistant
+Agent      Agent
+ |           |
+ v           v
+List      Search
+Files     Documents
+Tool      Tool
+ |           |
+ v           v
+Return    Return
+Policy    Answer from
+List      Indexed Docs
+ \         /
+   v     v
+ Response to User
+```
+
+How It Works
+------------
+1. **User Input:** User asks a question via text or voice in the browser UI.
+2. **Speech-to-Text:** If using voice, the browser converts speech to text.
+3. **Frontend Sends Query:** The question is sent to the FastAPI backend.
+4. **RAG Orchestrator:** The backend orchestrator routes the query:
+   - If it's a policy management query, it goes to the Policy Manager Agent.
+   - Otherwise, it goes to the Search Assistant Agent.
+5. **Vector Search:** The Search Assistant uses FAISS to find relevant policy document chunks.
+6. **LLM Answer:** Gemini LLM generates a grounded answer using only retrieved document content.
+7. **Short, Factual Response:** The backend instructs the LLM to answer briefly and always include coverage amounts if available.
+8. **Text-to-Speech:** If the user used voice input, the answer is spoken aloud in the browser; otherwise, it's shown as text.
+
+Key Features
+------------
+- **No Hallucination:** Answers are always grounded in indexed policy documents.
+- **Voice-to-Voice:** Users can ask and receive answers entirely by voice.
+- **FastAPI Backend:** Handles routing, search, and LLM calls.
+- **FAISS Vector Search:** Enables fast, semantic retrieval from large documents.
+- **Gemini LLM:** Provides accurate, concise, and policy-specific answers.
+- **Short Answers:** System prompt ensures answers are brief and include coverage numbers.
+
+Business Value
+--------------
+- Reduces customer confusion and support costs.
+- Increases policyholder satisfaction and trust.
+- Scalable to any insurance product or region.
+- Voice-first: accessible to all, including non-technical users.
+- Ready for enterprise deployment and future enhancements.
+
