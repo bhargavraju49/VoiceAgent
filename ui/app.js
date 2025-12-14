@@ -3,6 +3,7 @@ const chat = document.getElementById("chat");
 const q = document.getElementById("q");
 const sendBtn = document.getElementById("sendBtn");
 const latencyEl = document.getElementById("latency");
+let lastInputWasVoice = false;
 
 function escapeHtml(s){
   return s.replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[c]));
@@ -43,7 +44,8 @@ async function send(){
     });
     const data = await res.json();
     addMsg("bot", data.answer || "No answer returned.");
-    if (data.answer) speakText(data.answer);
+    if (data.answer && lastInputWasVoice) speakText(data.answer);
+    lastInputWasVoice = false;
   } catch (e){
     addMsg("bot", "❌ Backend not reachable. Start: uvicorn api:app --reload");
   } finally {
@@ -54,7 +56,7 @@ async function send(){
   }
 }
 
-window.askQuick = (text) => { q.value = text; send(); }
+window.askQuick = (text) => { q.value = text; lastInputWasVoice = false; send(); }
 window.clearChat = () => { chat.innerHTML = ""; }
 
 sendBtn.addEventListener("click", send);
@@ -94,6 +96,7 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
   recognition.onresult = (event) => {
     const transcript = event.results[0][0].transcript;
     q.value = transcript;
+    lastInputWasVoice = true;
     send();
   };
 

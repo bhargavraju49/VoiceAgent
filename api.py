@@ -76,28 +76,42 @@ async def chat(req: ChatRequest):
     if runner is None or SESSION_ID is None:
         return JSONResponse(status_code=503, content={"answer": "Backend not ready yet. Try again."})
 
+
     user_text = (req.text or "").strip()
     if not user_text:
         return {"answer": "Please type a question."}
 
-    content = types.Content(role="user", parts=[types.Part(text=user_text)])
+
+    # Prepend system instruction for concise answers and always include coverage numbers
+    system_instruction = "Answer in 1-2 sentences. Be brief and to the point. Always include the coverage amount or limit in your answer if available."
+    content = [
+        types.Content(role="system", parts=[types.Part(text=system_instruction)]),
+        types.Content(role="user", parts=[types.Part(text=user_text)])
+    ]
 
     final_text = ""
-    try:
-        async for event in runner.run_async(
-            user_id=USER_ID,
-            session_id=SESSION_ID,
-            new_message=content,
-        ):
-            # If your ADK version doesn't have is_final_response(), we still try to extract text
-            if getattr(event, "content", None) and getattr(event.content, "parts", None):
-                # keep updating with latest text
-                text_parts = [p.text for p in event.content.parts if getattr(p, "text", None)]
-                if text_parts:
-                    final_text = "\n".join(text_parts)
 
-            if hasattr(event, "is_final_response") and event.is_final_response():
-                break
+    try:
+        # If runner.run_async supports 'messages', use it; else fallback to 'new_message'
+        run_async_args = dict(user_id=USER_ID, session_id=SESSION_ID)
+        # Try 'messages' argument (for list of messages)
+        try:
+            async for event in runner.run_async(messages=content, **run_async_args):
+                if getattr(event, "content", None) and getattr(event.content, "parts", None):
+                    text_parts = [p.text for p in event.content.parts if getattr(p, "text", None)]
+                    if text_parts:
+                        final_text = "\n".join(text_parts)
+                if hasattr(event, "is_final_response") and event.is_final_response():
+                    break
+        except TypeError:
+            # Fallback for older ADK: send only user message
+            async for event in runner.run_async(new_message=content[-1], **run_async_args):
+                if getattr(event, "content", None) and getattr(event.content, "parts", None):
+                    text_parts = [p.text for p in event.content.parts if getattr(p, "text", None)]
+                    if text_parts:
+                        final_text = "\n".join(text_parts)
+                if hasattr(event, "is_final_response") and event.is_final_response():
+                    break
 
         return {"answer": final_text.strip() or "No answer produced."}
 
