@@ -15,6 +15,16 @@ function addMsg(role, text){
   chat.appendChild(div);
   chat.scrollTop = chat.scrollHeight;
 }
+
+function speakText(text) {
+  if ('speechSynthesis' in window) {
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'en-US';
+    window.speechSynthesis.cancel(); // Stop any current speech
+    window.speechSynthesis.speak(utter);
+  }
+}
+
 async function send(){
   const text = q.value.trim();
   if(!text) return;
@@ -33,6 +43,7 @@ async function send(){
     });
     const data = await res.json();
     addMsg("bot", data.answer || "No answer returned.");
+    if (data.answer) speakText(data.answer);
   } catch (e){
     addMsg("bot", "❌ Backend not reachable. Start: uvicorn api:app --reload");
   } finally {
@@ -49,4 +60,51 @@ window.clearChat = () => { chat.innerHTML = ""; }
 sendBtn.addEventListener("click", send);
 q.addEventListener("keydown", (e)=>{ if(e.key === "Enter") send(); });
 
+
 addMsg("bot", "Hi! Ask insurance questions. I’ll answer only from your indexed policy documents.");
+
+// --- Voice input (Speech-to-Text) support ---
+const micBtn = document.getElementById("micBtn");
+let recognizing = false;
+let recognition;
+
+if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SpeechRecognition();
+  recognition.lang = 'en-US';
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+
+  recognition.onstart = () => {
+    recognizing = true;
+    micBtn.classList.add('active');
+    micBtn.title = 'Listening...';
+  };
+  recognition.onend = () => {
+    recognizing = false;
+    micBtn.classList.remove('active');
+    micBtn.title = 'Speak';
+  };
+  recognition.onerror = (event) => {
+    recognizing = false;
+    micBtn.classList.remove('active');
+    micBtn.title = 'Speak';
+    addMsg('bot', '❌ Voice recognition error: ' + event.error);
+  };
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+    q.value = transcript;
+    send();
+  };
+
+  micBtn.addEventListener('click', () => {
+    if (recognizing) {
+      recognition.stop();
+      return;
+    }
+    recognition.start();
+  });
+} else {
+  micBtn.disabled = true;
+  micBtn.title = 'Speech recognition not supported in this browser.';
+}
