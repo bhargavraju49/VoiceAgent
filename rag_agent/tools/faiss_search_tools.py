@@ -280,30 +280,33 @@ def faiss_search_documents_impl(query: str, max_results: int = 5, tool_context: 
     Returns:
         Dictionary containing search results
     """
+    import logging
     try:
         manager = get_faiss_manager()
         results = manager.search_documents(query, max_results)
-        
+
         if not results:
+            logging.info(f"[FAISS SEARCH] No relevant documents found for query: {query}")
             return {
                 "status": "no_results",
                 "message": f"No relevant documents found for: {query}",
                 "query": query,
                 "results": []
             }
-        
+
         formatted_results = []
         response_text = ""
-        
-        for result in results:
+
+        logging.info(f"[FAISS SEARCH] Query: {query}")
+        for idx, result in enumerate(results):
             content = result['content']
             metadata = result['metadata']
             score = result['score']
-            
+
             # Truncate long content
             if len(content) > 500:
                 content = content[:500] + "..."
-            
+
             formatted_result = {
                 "content": content,
                 "source": metadata['source'],
@@ -311,17 +314,19 @@ def faiss_search_documents_impl(query: str, max_results: int = 5, tool_context: 
                 "type": metadata['type']
             }
             formatted_results.append(formatted_result)
-            
+
+            logging.info(f"[FAISS SEARCH] Result {idx+1}: Score={score}, Source={metadata['source']}, Content Preview={content[:120].replace('\n',' ')}")
             response_text += f"{content}\n\n"
-        
+
         return {
             "status": "success",
             "message": response_text.strip(),
             "query": query,
             "results": formatted_results
         }
-        
+
     except Exception as e:
+        logging.exception(f"[FAISS SEARCH] Error searching documents for query: {query}")
         return {
             "status": "error",
             "message": f"Error searching documents: {str(e)}",
