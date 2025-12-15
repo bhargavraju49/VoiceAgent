@@ -278,45 +278,192 @@ def faiss_search_documents_impl(query: str, max_results: int = 5, tool_context: 
         tool_context: The tool context (automatically provided by ADK)
     
     Returns:
-        Dictionary containing search results
+        Dictionary containing search results with voice-optimized formatting
     """
     try:
         manager = get_faiss_manager()
         results = manager.search_documents(query, max_results)
         
         if not results:
-            return {
-                "status": "no_results",
-                "message": f"No relevant documents found for: {query}",
-                "query": query,
-                "results": []
-            }
+            # Provide helpful alternatives instead of saying "no information found"
+            if any(word in query.lower() for word in ['complaint', 'complain']):
+                return {
+                    "status": "helpful_response", 
+                    "message": "To make a complaint about legal expenses, contact Halifax customer services at 0345 604 6473. They're available Monday to Friday 8am-6pm and Saturday 9am-1pm. They'll guide you through the complaint process and handle your concerns.",
+                    "query": query,
+                    "results": []
+                }
+            elif any(word in query.lower() for word in ['claim', 'make claim']):
+                return {
+                    "status": "helpful_response",
+                    "message": "To make a claim, you can register online at halifax.uk/make-a-claim available 24/7, or call Halifax at 0345 604 6473. Their lines are open 8am-6pm Monday-Friday and 9am-1pm Saturday.",
+                    "query": query, 
+                    "results": []
+                }
+            elif any(word in query.lower() for word in ['contact', 'phone', 'call']):
+                return {
+                    "status": "helpful_response",
+                    "message": "The main Halifax customer service number is 0345 604 6473. They're open 8am-6pm Monday-Friday and 9am-1pm Saturday. You can also visit halifax.uk for online services.",
+                    "query": query,
+                    "results": []
+                }
+            else:
+                return {
+                    "status": "helpful_response",
+                    "message": f"I can help you with information about your insurance. For general inquiries about {query.lower()}, contact Halifax customer services at 0345 604 6473. Is there something specific I can help you find?",
+                    "query": query,
+                    "results": []
+                }
         
         formatted_results = []
         response_text = ""
         
+        def clean_content_for_voice(content: str) -> str:
+            """Clean content to make it more voice-friendly"""
+            import re
+            
+            # Remove page references and section numbers first
+            content = re.sub(r'\b(?:Pages?\s+\d+(?:-\d+)?(?:\s+apply)?|Section\s+\d+|Page\s+\d+)', '', content, flags=re.IGNORECASE)
+            
+            # Remove standalone numbers that look like page/section references
+            content = re.sub(r'\b\d+\s+(?=How to|What|When|Where|Why|Your|Legal|Contact)', '', content)
+            
+            # Remove policy document headers and footers
+            content = re.sub(r'Policy booklet|HALIFAX|Home Insurance|Legal Expenses|Policy Limits', '', content, flags=re.IGNORECASE)
+            
+            # Remove unicode escape sequences
+            content = content.replace('\\u2022', '•').replace('\\u00a3', '£')
+            
+            # Clean up multiple spaces, line breaks, and dots
+            content = re.sub(r'\s+', ' ', content)
+            content = re.sub(r'\.{2,}', '.', content)
+            
+            # Remove policy jargon and make more conversational
+            content = content.replace('pursuant to', 'according to')
+            content = content.replace('You must', 'You need to')
+            content = content.replace('shall', 'will')
+            
+            # For complaints queries, extract the most relevant information
+            if any(word in query.lower() for word in ['complaint', 'complain']):
+                sentences = [s.strip() for s in content.split('.') if s.strip()]
+                
+                # Look for complaint-specific information
+                complaint_info = []
+                contact_info = []
+                
+                for sentence in sentences:
+                    sentence_lower = sentence.lower()
+                    if 'complaint' in sentence_lower and len(sentence) > 15:
+                        complaint_info.append(sentence)
+                    elif any(word in sentence_lower for word in ['contact', 'phone', 'call', '0345', 'halifax', 'customer']):
+                        contact_info.append(sentence)
+                
+                # Prioritize contact information for complaints
+                if contact_info:
+                    return '. '.join(contact_info[:2]) + '. You can use this number to make your complaint.'
+                elif complaint_info:
+                    return '. '.join(complaint_info[:2]) + '. For specific details, you can call customer services.'
+                else:
+                    # Provide helpful general guidance for complaints
+                    return "To make a complaint about legal expenses, contact Halifax customer services at 0345 604 6473. They're available Monday to Friday 8am-6pm and Saturday 9am-1pm. They'll guide you through the complaint process."
+                    
+            # For claims queries, extract procedural information
+            elif any(word in query.lower() for word in ['claim', 'make claim']):
+                sentences = [s.strip() for s in content.split('.') if s.strip()]
+                
+                # Look for claims process information
+                claims_info = []
+                contact_info = []
+                
+                for sentence in sentences:
+                    sentence_lower = sentence.lower()
+                    if any(word in sentence_lower for word in ['claim', 'register', 'online', 'halifax.uk']):
+                        if len(sentence) > 15:
+                            claims_info.append(sentence)
+                    elif any(word in sentence_lower for word in ['0345', 'call', 'contact', 'lines are open']):
+                        if len(sentence) > 15:
+                            contact_info.append(sentence)
+                
+                if claims_info or contact_info:
+                    result_sentences = (claims_info + contact_info)[:2]
+                    return '. '.join(result_sentences) + '.'
+                else:
+                    return "To make a claim, you can register online at halifax.uk/make-a-claim or call Halifax at 0345 604 6473. Their lines are open 8am-6pm Monday-Friday and 9am-1pm Saturday."
+                    
+            # For contact/phone queries
+            elif any(word in query.lower() for word in ['contact', 'phone', 'call', 'number']):
+                sentences = [s.strip() for s in content.split('.') if s.strip()]
+                
+                # Look for contact information
+                contact_sentences = []
+                for sentence in sentences:
+                    if any(word in sentence.lower() for word in ['0345', 'call', 'contact', 'phone', 'halifax', 'lines are open']):
+                        if len(sentence) > 10:
+                            contact_sentences.append(sentence)
+                
+                if contact_sentences:
+                    result = '. '.join(contact_sentences[:2]) + '.'
+                    return result
+                else:
+                    return "The main Halifax customer service number is 0345 604 6473. They're open 8am-6pm Monday-Friday and 9am-1pm Saturday. You can also visit halifax.uk for online services."
+            
+            # For general queries, extract first meaningful sentences
+            sentences = [s.strip() for s in content.split('.') if s.strip() and len(s.strip()) > 15]
+            
+            if sentences:
+                # Take first 2 meaningful sentences
+                result = '. '.join(sentences[:2]) + '.'
+                
+                # Limit length
+                if len(result) > 300:
+                    result = result[:300]
+                    last_period = result.rfind('.')
+                    if last_period > 200:
+                        result = result[:last_period + 1]
+                    else:
+                        result = result + "..."
+                        
+                return result
+                
+            return "I found some information, but let me help you with what I know. For general inquiries, you can contact Halifax customer services at 0345 604 6473."
+        
         for result in results:
-            content = result['content']
+            original_content = result['content']
+            cleaned_content = clean_content_for_voice(original_content)
             metadata = result['metadata']
             score = result['score']
             
-            # Truncate long content
-            if len(content) > 500:
-                content = content[:500] + "..."
-            
             formatted_result = {
-                "content": content,
+                "content": cleaned_content,
                 "source": metadata['source'],
                 "score": score,
                 "type": metadata['type']
             }
             formatted_results.append(formatted_result)
             
-            response_text += f"{content}\n\n"
+            response_text += f"{cleaned_content} "
+        
+        # Final cleanup of response text for voice
+        response_text = response_text.strip()
+        
+        # Add voice-friendly conclusion for specific query types
+        if any(word in query.lower() for word in ['complaint', 'complain']):
+            if 'customer' in response_text.lower() or 'contact' in response_text.lower():
+                response_text += " They'll be able to help you with the complaint process."
+            else:
+                response_text += " For help with complaints, call Halifax customer services at 0345 604 6473."
+                
+        elif any(word in query.lower() for word in ['claim', 'make claim']):
+            if 'contact' not in response_text.lower() and '0345' not in response_text:
+                response_text += " For claims support, call 0345 604 6473 or visit halifax.uk/make-a-claim."
+        
+        elif any(word in query.lower() for word in ['contact', 'phone', 'call']):
+            if '0345' not in response_text:
+                response_text += " The main customer service number is 0345 604 6473."
         
         return {
             "status": "success",
-            "message": response_text.strip(),
+            "message": response_text,
             "query": query,
             "results": formatted_results
         }
