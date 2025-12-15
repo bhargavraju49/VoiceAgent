@@ -46,14 +46,13 @@ def create_search_assistant_agent(llm=None) -> LlmAgent:
     if VECTOR_SEARCH_AVAILABLE:
         tools_description = f"""
     **Your Tools:**
-    1. `search_documents`: Traditional keyword search through indexed policies
-    2. `faiss_search_documents`: Advanced semantic search using {VECTOR_TYPE} vector database
-    3. `faiss_index_documents`: Index new policy documents into vector database
+    1. `faiss_search_documents`: Advanced semantic search using {VECTOR_TYPE} vector database - **ALWAYS USE THIS FIRST**
+    2. `faiss_index_documents`: Index new policy documents into vector database
     
     **Search Strategy:**
-    1. **For specific questions** (claims, contact, coverage): Try `faiss_search_documents` first for better semantic understanding
-    2. **If vector search fails or limited results**: Fall back to `search_documents`  
-    3. **For document indexing requests**: Use `faiss_index_documents`"""
+    1. **Always use `faiss_search_documents` first** for all queries - it provides the most accurate and consistent results
+    2. **For document indexing requests**: Use `faiss_index_documents`
+    3. **Important**: The faiss_search_documents tool has been enhanced with query expansion and consistent response logic"""
     else:
         tools_description = """
     **Your Tool:**
@@ -105,12 +104,14 @@ def create_search_assistant_agent(llm=None) -> LlmAgent:
     - Structure information logically
     - Present information confidently without referencing sources
     """
-    # Determine tools based on availability
-    tools = [search_tool]
+    # Determine tools based on availability - PRIORITIZE VECTOR SEARCH
     if VECTOR_SEARCH_AVAILABLE:
-        tools.extend([faiss_search_documents, faiss_index_documents])
-        description = f"Enhanced search agent with {VECTOR_TYPE} vector database and traditional search capabilities."
+        # Only use FAISS search for better consistency - remove basic search
+        tools = [faiss_search_documents, faiss_index_documents]
+        description = f"Enhanced search agent with {VECTOR_TYPE} vector database for semantic search."
     else:
+        # Fallback to basic search only if FAISS not available
+        tools = [search_tool]
         description = "Enhanced search agent with improved contact and claims search."
     
     return LlmAgent(
